@@ -114,6 +114,9 @@ describe('Storage Secret', async function () {
 
         expect(await _secretsStorage.connect(owner).changeOwner(otherAccount))
           .not.to.be.reverted;
+        await expect(_secretsStorage.connect(otherAccount).changeOwner(owner))
+          .to.emit(_secretsStorage, 'ChangedOwner')
+          .withArgs(otherAccount.address, owner.address);
       });
     });
   });

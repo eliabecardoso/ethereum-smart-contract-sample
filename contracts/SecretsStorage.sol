@@ -6,6 +6,8 @@ contract SecretsStorage {
   string secret = 'changeme';
   address public owner;
 
+  event ChangedOwner(address from, address to);
+
   modifier checkOwner(string memory phrase) {
     require(msg.sender == owner, phrase);
     _;
@@ -74,5 +76,6 @@ contract SecretsStorage {
     alreadyOwner(newOwner)
   {
     owner = newOwner;
+    emit ChangedOwner(msg.sender, newOwner);
   }
 }
