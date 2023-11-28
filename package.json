@@ -1,0 +1,17 @@
+{
+  "name": "hardhat-framework-samples",
+  "version": "1.0.0",
+  "description": "Samples using Hardhat framework to create Smart Contracts",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx hardhat test",
+    "compile": "npx hardhat compile",
+    "local-deploy": "npx hardhat run scripts/deploy.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.1"
+  }
+}
