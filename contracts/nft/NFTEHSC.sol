@@ -10,31 +10,37 @@ contract NFTEHSC is NTFAuction, NFTBase {
     _;
   }
 
+  modifier checkBalance() {
+    require(address(this).balance > 0, 'Oops...');
+    _;
+  }
+
   constructor(address owner, uint8 royaltiesTax, address auctioneer, uint8 auctioneerTax)
     NTFAuction(auctioneer, auctioneerTax)
     NFTBase(royaltiesTax, owner) { }
 
   function mint() checkValue(1000) external payable {
-    bytes32 ipfsHash = bytes32(block.timestamp); // external info
+    bytes32 ipfsHash = keccak256('QmXExS4BMc1YrH6iWERyryFcDWkvobxryXSwECLrcd7Y1H'); // external info (e.g. 'QmXExS4BMc1YrH6iWERyryFcDWkvobxryXSwECLrcd7Y1H')
 
-    mint(ipfsHash);
+    _mint(ipfsHash);
     payable(nftOwner).transfer(msg.value);
   }
 
-  function offer(uint8 tokenId) checkValue(100) public payable {
-    offer(msg.sender, msg.value, tokenId);
+  function bid(uint8 tokenId) checkValue(100) checkTransfer(tokenId) public payable {
+    _bid(msg.sender, msg.value, tokenId);
   }
 
-  function transfer(uint8 tokenId) checkOwner(tokenId) checkCommitOffer(tokenId) checkTransfer(tokenId) external payable {
-    uint valueToOwner = offers[tokenId].value / royaltiesTax; // 1000 / 1.1 = 909.09
-    uint valueToNftOwner = (offers[tokenId].value - valueToOwner) / auctioneerTax; // (1000 - 909.09) / 1.1 = 82.64
-    uint valueToAuctioneer = offers[tokenId].value - valueToOwner - valueToNftOwner; // 1000 - 909.09 - 82.64 = 8.26
+  function transfer(uint8 tokenId) checkOwner(tokenId) checkBalance() checkCommitBidder(tokenId) checkTransfer(tokenId) external {
+    uint valueToOwner = highestBidder[tokenId].value / royaltiesTax; // 1000 / 1.1 (10%) = 909.09
+    uint valueToNftOwner = (highestBidder[tokenId].value - valueToOwner) / auctioneerTax; // (1000 - 909.09) / 1.1 (10%) = 82.64
+    uint valueToAuctioneer = highestBidder[tokenId].value - valueToOwner - valueToNftOwner; // 1000 - 909.09 - 82.64 = 8.26
 
     payable(msg.sender).transfer(valueToOwner);
     payable(nftOwner).transfer(valueToNftOwner);
     payable(auctioneer).transfer(valueToAuctioneer);
 
-    transfer(offers[tokenId].buyer, tokenId);
-    resetOffer(tokenId);
+    _transfer(highestBidder[tokenId].bidder, tokenId);
+    _resetBidder(tokenId);
+    this.unNegotiate(tokenId);
   }
 }

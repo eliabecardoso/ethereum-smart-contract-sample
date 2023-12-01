@@ -2,31 +2,45 @@
 
 pragma solidity ^0.8.9;
 
-import { NFTBase } from './NFTBase.sol';
-
-struct Offer {
-  address buyer;
+struct Bidder {
+  address bidder;
   uint value;
   uint unlockTime;
+  bool unlock;
 }
 
 contract NTFAuction {
   address public auctioneer;
   uint8 public auctioneerTax;
-  mapping(uint tokenId => Offer buyer) public offers;
+  mapping(uint tokenId => Bidder highestBidder) public highestBidder;
 
-  event NewOffer(address from, uint value, uint8 tokenId);
+  event NewBidder(address from, uint value, uint8 tokenId);
 
-  event WithdrawOffer(address to, uint value, uint8 tokenId);
+  event WithdrawBidder(address to, uint value, uint8 tokenId);
 
-  modifier checkOffer(uint offerValue) {
-    require(offerValue != 0, 'Offer must be more than zero');
+  modifier checkBidder(uint bidValue) {
+    require(bidValue != 0, 'Bidder must be more than zero');
     _;
   }
 
-  modifier checkCommitOffer(uint8 tokenId) {
-    require(offers[tokenId].buyer != address(0), 'No one offer');
-    // require(block.timestamp >= offers[tokenId].unlockTime, 'Unlock time not reached'); make sense?
+  modifier checkCommitBidder(uint8 tokenId) {
+    require(highestBidder[tokenId].bidder != address(0), 'No one bid');
+    // require(block.timestamp >= highestBidder[tokenId].unlockTime, 'Unlock time not reached'); make sense?
+    _;
+  }
+
+  modifier checkSelfWithdraw(uint8 tokenId) {
+    Bidder memory bidder = highestBidder[tokenId];
+
+    require(msg.sender == bidder.bidder, 'You are not the bidder');
+    require(msg.value >= 100, 'Withdraw Tax not reached (100 wei)');
+    require(block.timestamp > bidder.unlockTime, 'Unlock time not reached');
+    require(bidder.unlock, 'Bid locked');
+    _;
+  }
+
+  modifier checkAuctioneer() {
+    require(msg.sender == auctioneer, 'You are not the Auctioneer');
     _;
   }
 
@@ -35,45 +49,46 @@ contract NTFAuction {
     auctioneerTax = _auctioneerTax;
   }
 
-  function offer(address buyer, uint offerValue, uint8 tokenId) checkOffer(offerValue) internal {
-    if (offers[tokenId].buyer != address(0)) {
-      require(offerValue > offers[tokenId].value, 'Value not reached');
+  function _bid(address bidder, uint bidValue, uint8 tokenId) checkBidder(bidValue) internal {
+    require(address(bidder).balance >= bidValue, 'Your balance must be more than bid value');
 
-      withdraw(tokenId, offers[tokenId].buyer);
+    if (highestBidder[tokenId].bidder != address(0)) {
+      require(bidValue > highestBidder[tokenId].value, 'Value not reached');
+
+      _withdraw(tokenId, highestBidder[tokenId].bidder);
     }
 
     uint lockTime = block.timestamp + 60;
+    highestBidder[tokenId] = Bidder(bidder, bidValue, lockTime, true);
 
-    offers[tokenId] = Offer(buyer, offerValue, lockTime);
-
-    emit NewOffer(buyer, offerValue, tokenId);
+    emit NewBidder(bidder, bidValue, tokenId);
   }
 
-  function resetOffer(uint8 tokenId) internal {
-    offers[tokenId] = Offer(address(0), 0, 0);
+  function _resetBidder(uint8 tokenId) internal {
+    // highestBidder[tokenId] = Bidder(address(0), 0, 0);
+    delete highestBidder[tokenId];
   }
 
-  function removeOffer(address exbuyer, uint8 tokenId) internal {
-    payable(exbuyer).transfer(offers[tokenId].value);
-    resetOffer(tokenId);
+  function _removeBidder(address exHighestBidder, uint8 tokenId) internal {
+    payable(exHighestBidder).transfer(highestBidder[tokenId].value);
+    _resetBidder(tokenId);
   }
 
-  function withdraw(uint8 tokenId, address to) internal {
-    Offer memory _offer = offers[tokenId];
+  function _withdraw(uint8 tokenId, address to) internal {
+    Bidder memory bidder = highestBidder[tokenId];
 
-    removeOffer(to, tokenId);
+    _removeBidder(to, tokenId);
 
-    emit WithdrawOffer(to, _offer.value, tokenId);
+    emit WithdrawBidder(to, bidder.value, tokenId);
   }
 
-  function withdraw(uint8 tokenId) external {
-    Offer memory _offer = offers[tokenId];
+  function withdraw(uint8 tokenId) checkSelfWithdraw(tokenId) external payable {
+    _removeBidder(msg.sender, tokenId);
 
-    require(msg.sender == _offer.buyer, 'You are not the buyer');
-    require(block.timestamp >= _offer.unlockTime, 'Unlock time not reached');
+    emit WithdrawBidder(msg.sender, highestBidder[tokenId].value, tokenId);
+  }
 
-    removeOffer(msg.sender, tokenId);
-
-    emit WithdrawOffer(msg.sender, _offer.value, tokenId);
+  function unlockBid(uint8 tokenId) checkAuctioneer external {
+    highestBidder[tokenId].unlock = true;
   }
 }

@@ -6,6 +6,7 @@ struct TokenOwner {
   address owner;
   bytes32 ipfsHash;
   bool negotiate;
+  // uint256 flags; // flags in bitmaps mode
   uint value;
 }
 
@@ -33,10 +34,16 @@ contract NFTBase {
     royaltiesTax = _royaltiesTax;
   }
 
-  function mint(bytes32 ipfsHash) internal {
+  function _mint(bytes32 ipfsHash) internal {
     tokenOwner[++tokenCounter] = TokenOwner(msg.sender, ipfsHash, false, 0);
 
     emit Mint(nftOwner, tokenCounter, ipfsHash);
+  }
+
+  function _transfer(address to, uint8 tokenId) internal {
+    tokenOwner[tokenId].owner = to;
+
+    emit Transfer(msg.sender, to, tokenId);
   }
 
   function negotiate(uint8 tokenId, uint value) checkOwner(tokenId) external {
@@ -49,9 +56,7 @@ contract NFTBase {
     tokenOwner[tokenId].value = 0;
   }
 
-  function transfer(address to, uint8 tokenId) internal {
-    tokenOwner[tokenId].owner = to;
-
-    emit Transfer(msg.sender, to, tokenId);
+  function balance() external view returns(uint) {
+    return address(this).balance;
   }
 }
