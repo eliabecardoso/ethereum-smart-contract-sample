@@ -35,12 +35,12 @@ contract NFTEHSC is NTFAuction, NFTBase {
     uint valueToNftOwner = (highestBidder[tokenId].value - valueToOwner) / auctioneerTax; // (1000 - 909.09) / 1.1 (10%) = 82.64
     uint valueToAuctioneer = highestBidder[tokenId].value - valueToOwner - valueToNftOwner; // 1000 - 909.09 - 82.64 = 8.26
 
-    payable(msg.sender).transfer(valueToOwner);
-    payable(nftOwner).transfer(valueToNftOwner);
-    payable(auctioneer).transfer(valueToAuctioneer);
-
     _transfer(highestBidder[tokenId].bidder, tokenId);
     _resetBidder(tokenId);
     this.unNegotiate(tokenId);
+
+    payable(msg.sender).transfer(valueToOwner);
+    payable(nftOwner).transfer(valueToNftOwner);
+    payable(auctioneer).transfer(valueToAuctioneer);
   }
 }
